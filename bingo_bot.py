@@ -1,142 +1,169 @@
-import os
-import random
-import telebot
+import os, random, telebot
 from PIL import Image, ImageDraw, ImageFont
 
-# ---------- BOT ----------
-TOKEN = os.environ.get("TOKEN")
-if not TOKEN:
-    raise RuntimeError("TOKEN not set")
-
+TOKEN = os.environ["TOKEN"]
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-games = {}
-
-# ---------- CARD CONFIG ----------
+# ================= CONFIG =================
 GRID = 5
 CELL = 140
-FONT_SIZE = 60
-MARGIN = 30
-TOP = 100
-IMG_W = GRID * CELL + MARGIN * 2
+NUM_FONT = ImageFont.truetype("DejaVuSans-Bold.ttf", 64)
+HEAD_FONT = ImageFont.truetype("DejaVuSans-Bold.ttf", 36)
+MARGIN = 40
+TOP = 120
+LINE_W = 10
 
-FONT = ImageFont.truetype("DejaVuSans-Bold.ttf", FONT_SIZE)
-TITLE_FONT = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
+# ================= GAME STORE =================
+games = {}
+# games[chat_id] = {
+#   started: bool,
+#   locked: bool,
+#   players: {uid: card},
+#   marked: {uid: set()},
+#   called: set(),
+#   lines: {uid: int}
+# }
 
-# ---------- CARD LOGIC ----------
+# ================= HELPERS =================
 def new_card():
     nums = list(range(1, 26))
     random.shuffle(nums)
     return [nums[i*5:(i+1)*5] for i in range(5)]
 
-def draw_card(name, card):
-    img = Image.new("RGB", (IMG_W, IMG_W + 80), "white")
+def count_lines(card, marked):
+    lines = 0
+    for i in range(5):
+        if all(card[i][c] in marked for c in range(5)): lines += 1
+        if all(card[r][i] in marked for r in range(5)): lines += 1
+    if all(card[i][i] in marked for i in range(5)): lines += 1
+    if all(card[i][4-i] in marked for i in range(5)): lines += 1
+    return min(lines, 5)
+
+def draw_card(name, card, marked, lines):
+    size = GRID * CELL + MARGIN * 2
+    img = Image.new("RGB", (size, size + 120), "white")
     d = ImageDraw.Draw(img)
 
-    d.text((IMG_W//2, 20), f"{name}'s BINGO",
-           fill="black", anchor="mm", font=TITLE_FONT)
+    d.text((size//2, 30), f"{name}'s BINGO", anchor="mm", fill="black", font=HEAD_FONT)
+    d.text((size//2, 80), f"Lines: {lines}/5", anchor="mm", fill="black", font=HEAD_FONT)
+
+    for r in range(6):
+        y = TOP + r * CELL
+        d.line((MARGIN, y, size-MARGIN, y), fill="black", width=LINE_W)
+
+    for c in range(6):
+        x = MARGIN + c * CELL
+        d.line((x, TOP, x, TOP + CELL*5), fill="black", width=LINE_W)
 
     for r in range(5):
         for c in range(5):
-            x1 = MARGIN + c * CELL
-            y1 = TOP + r * CELL
+            n = card[r][c]
+            x1 = MARGIN + c*CELL
+            y1 = TOP + r*CELL
             x2 = x1 + CELL
             y2 = y1 + CELL
 
-            d.rectangle([x1, y1, x2, y2], outline="black", width=4)
-            num = str(card[r][c])
-            w, h = d.textbbox((0,0), num, font=FONT)[2:]
-            d.text((x1 + CELL//2, y1 + CELL//2),
-                   num, fill="black", anchor="mm", font=FONT)
+            d.text((x1+CELL//2, y1+CELL//2), str(n),
+                   anchor="mm", fill="black", font=NUM_FONT)
+
+            if n in marked:
+                d.line((x1+20,y1+20,x2-20,y2-20), fill="green", width=10)
+                d.line((x1+20,y2-20,x2-20,y1+20), fill="green", width=10)
+
+    # red strike for completed rows/cols
+    for i in range(5):
+        if all(card[i][c] in marked for c in range(5)):
+            y = TOP + i*CELL + CELL//2
+            d.line((MARGIN+10,y,size-MARGIN-10,y), fill="red", width=8)
+        if all(card[r][i] in marked for r in range(5)):
+            x = MARGIN + i*CELL + CELL//2
+            d.line((x,TOP+10,x,TOP+CELL*5-10), fill="red", width=8)
 
     return img
 
-# ---------- COMMANDS ----------
+# ================= COMMANDS =================
 @bot.message_handler(commands=["startgame"])
 def start_game(m):
-    chat_id = m.chat.id   # GROUP ID
-
-    games[chat_id] = {
-        "players": {},    # uid -> card
-        "marked": {},     # uid -> set(numbers)
-        "called": set()
+    games[m.chat.id] = {
+        "started": True,
+        "locked": False,
+        "players": {},
+        "marked": {},
+        "called": set(),
+        "lines": {}
     }
-
-    bot.send_message(
-        chat_id,
-        "🎯 Bingo started\nUse /join to join",
-        parse_mode="HTML"
-    )
+    bot.send_message(m.chat.id, "🎯 Bingo started\nUse /join to join")
 
 @bot.message_handler(commands=["join"])
 def join(m):
-    chat_id = m.chat.id   # GROUP ID
-    uid = m.from_user.id
-    name = m.from_user.first_name
-
-    if chat_id not in games:
-        bot.reply_to(m, "❌ No active game. Use /startgame")
+    g = games.get(m.chat.id)
+    if not g or g["locked"]:
+        bot.reply_to(m, "❌ Joining closed")
         return
 
-    g = games[chat_id]
-
+    uid = m.from_user.id
     if uid in g["players"]:
-        bot.reply_to(m, "⚠️ You already joined")
         return
 
     card = new_card()
     g["players"][uid] = card
     g["marked"][uid] = set()
+    g["lines"][uid] = 0
 
-    img = draw_card(name, card, set(), 0)
+    img = draw_card(m.from_user.first_name, card, set(), 0)
     img.save("card.png")
+    bot.send_photo(uid, open("card.png","rb"))
+    bot.send_message(m.chat.id, f"✅ {m.from_user.first_name} joined")
 
-    bot.send_photo(uid, open("card.png", "rb"))
-    bot.send_message(chat_id, f"✅ {name} joined")
+@bot.message_handler(commands=["lock"])
+def lock(m):
+    g = games.get(m.chat.id)
+    if not g: return
+    g["locked"] = True
+    bot.send_message(m.chat.id, "🔒 Game locked. Start calling numbers.")
 
 @bot.message_handler(func=lambda m: m.text and m.text.isdigit())
 def call_number(m):
-    chat_id = m.chat.id   # GROUP ID
+    g = games.get(m.chat.id)
+    if not g: return
+
     uid = m.from_user.id
-    number = int(m.text)
-
-    if chat_id not in games:
-        return
-
-    g = games[chat_id]
-
-    # block non-joined users
     if uid not in g["players"]:
-        bot.reply_to(m, "❌ You have not joined the game")
+        bot.reply_to(m, "❌ You haven't joined")
         return
 
-    if number in g["called"]:
-        bot.reply_to(m, "⚠️ Number already called")
+    num = int(m.text)
+    if num in g["called"]:
         return
 
-    g["called"].add(number)
-
-    bot.send_message(
-        chat_id,
-        f"📢 <b>{m.from_user.first_name}</b> called <b>{number}</b>",
-        parse_mode="HTML"
-    )
+    g["called"].add(num)
+    bot.send_message(m.chat.id, f"📢 <b>{m.from_user.first_name}</b> called <b>{num}</b>")
 
     for pid, card in g["players"].items():
-        if number in card:
-            g["marked"][pid].add(number)
+        if num in sum(card, []):
+            g["marked"][pid].add(num)
 
-        lines = count_lines(card, g["marked"][pid])
+        new_lines = count_lines(card, g["marked"][pid])
+        if new_lines > g["lines"][pid]:
+            g["lines"][pid] = new_lines
+            bot.send_message(
+                m.chat.id,
+                f"🏆 <b>{bot.get_chat(pid).first_name}</b> {new_lines}/5"
+            )
+
+            if new_lines == 5:
+                bot.send_message(m.chat.id, f"🎉 <b>{bot.get_chat(pid).first_name}</b> WINS!")
+                games.pop(m.chat.id)
+                return
 
         img = draw_card(
             bot.get_chat(pid).first_name,
             card,
             g["marked"][pid],
-            lines
+            g["lines"][pid]
         )
-
         img.save("update.png")
-        bot.send_photo(pid, open("update.png", "rb"))
+        bot.send_photo(pid, open("update.png","rb"))
 
-# ---------- RUN ----------
-bot.infinity_polling(skip_pending=True)
+# ================= RUN =================
+bot.infinity_polling()

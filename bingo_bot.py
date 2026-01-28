@@ -88,11 +88,31 @@ def join(m):
             m,
             "❌ Please open bot DM once and press Start"
         )
-# ================= NUMBER CALL =================
+# ================= NUMBER CALL + MARK X =================
 @bot.message_handler(func=lambda m: m.text and m.text.isdigit())
 def call_number(m):
     chat_id = m.chat.id
+    uid = m.from_user.id
     number = int(m.text)
+
+    # game must exist
+    if chat_id not in games:
+        return
+
+    g = games[chat_id]
+
+    # ❌ block users who did NOT join
+    if uid not in g["players"]:
+        bot.reply_to(m, "❌ You have not joined the game")
+        return
+
+    # ❌ avoid duplicate number calls
+    if number in g["called"]:
+        bot.reply_to(m, "⚠️ Number already called")
+        return
+
+    # save called number
+    g["called"].add(number)
 
     # announce in group
     bot.send_message(
@@ -100,6 +120,23 @@ def call_number(m):
         f"📢 <b>{m.from_user.first_name}</b> called <b>{number}</b>",
         parse_mode="HTML"
     )
+
+    # update every joined player's card
+    for pid, card in g["players"].items():
+        if number in card:
+            g["marked"][pid].add(number)
+
+        lines = count_lines(card, g["marked"][pid])
+
+        img = draw_card(
+            bot.get_chat(pid).first_name,
+            card,
+            g["marked"][pid],
+            lines
+        )
+
+        img.save("update.png")
+        bot.send_photo(pid, open("update.png", "rb"))
 
 # ---------- RUN ----------
 bot.infinity_polling(skip_pending=True)

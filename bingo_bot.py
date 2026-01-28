@@ -78,6 +78,33 @@ def draw_card(name, card, marked, lines):
         if all(card[r][i] in marked for r in range(5)):
             x = MARGIN + i*CELL + CELL//2
             d.line((x,TOP+10,x,TOP+CELL*5-10), fill="red", width=8)
+    # 🔴 RED DIAGONAL LINES
+
+    # main diagonal (top-left → bottom-right)
+    if all(card[i][i] in marked for i in range(5)):
+        d.line(
+            (
+                MARGIN + 20,
+                TOP + 20,
+                MARGIN + CELL*5 - 20,
+                TOP + CELL*5 - 20
+            ),
+            fill="red",
+            width=8
+        )
+
+    # anti diagonal (top-right → bottom-left)
+    if all(card[i][4 - i] in marked for i in range(5)):
+        d.line(
+            (
+                MARGIN + CELL*5 - 20,
+                TOP + 20,
+                MARGIN + 20,
+                TOP + CELL*5 - 20
+            ),
+            fill="red",
+            width=8
+        )
 
     return img
 
@@ -152,18 +179,27 @@ def call_number(m):
             )
 
             if new_lines == 5:
-                bot.send_message(m.chat.id, f"🎉 <b>{bot.get_chat(pid).first_name}</b> WINS!")
-                games.pop(m.chat.id)
-                return
+    # ✅ DRAW & SEND FINAL UPDATED CARD FIRST
+    img = draw_card(
+        bot.get_chat(pid).first_name,
+        card,
+        g["marked"][pid],
+        new_lines
+    )
+    img.save("update.png")
+    bot.send_photo(pid, open("update.png", "rb"))
 
-        img = draw_card(
-            bot.get_chat(pid).first_name,
-            card,
-            g["marked"][pid],
-            g["lines"][pid]
-        )
-        img.save("update.png")
-        bot.send_photo(pid, open("update.png","rb"))
+    # ✅ THEN ANNOUNCE WINNER
+    bot.send_message(
+        m.chat.id,
+        f"🎉 <b>{bot.get_chat(pid).first_name}</b> WINS! (5/5)",
+        parse_mode="HTML"
+    )
+
+    # ✅ FINALLY END GAME
+    games.pop(m.chat.id)
+    return
+
 
 # ================= RUN =================
 bot.infinity_polling()

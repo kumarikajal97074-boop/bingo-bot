@@ -206,7 +206,6 @@ if new_lines == 5:
 
     # ✅ FINALLY END GAME
     games.pop(m.chat.id)
-    return
 
 
 # ================= RUN =================

@@ -185,7 +185,7 @@ def call_number(m):
                 f"🏆 <b>{bot.get_chat(pid).first_name}</b> {new_lines}/5"
             )
 
-            if new_lines == 5:
+if new_lines == 5:
     # ✅ DRAW & SEND FINAL UPDATED CARD FIRST
     img = draw_card(
         bot.get_chat(pid).first_name,
@@ -195,6 +195,7 @@ def call_number(m):
     )
     img.save("update.png")
     bot.send_photo(pid, open("update.png", "rb"))
+
 
     # ✅ THEN ANNOUNCE WINNER
     bot.send_message(
@@ -209,4 +210,6 @@ def call_number(m):
 
 
 # ================= RUN =================
+print("Bot started successfully")
 bot.infinity_polling()
+

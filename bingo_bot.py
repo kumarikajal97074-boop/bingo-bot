@@ -54,81 +54,74 @@ def draw_card(name, card):
 # ---------- COMMANDS ----------
 @bot.message_handler(commands=["startgame"])
 def start_game(m):
-    games[m.chat.id] = {
-        "players": {},   # uid -> card
-        "marked": {},    # uid -> set(numbers)
-        "called": set()  # ← REQUIRED
+    chat_id = m.chat.id   # GROUP ID
+
+    games[chat_id] = {
+        "players": {},    # uid -> card
+        "marked": {},     # uid -> set(numbers)
+        "called": set()
     }
 
     bot.send_message(
-        m.chat.id,
+        chat_id,
         "🎯 Bingo started\nUse /join to join",
         parse_mode="HTML"
     )
 
-
 @bot.message_handler(commands=["join"])
 def join(m):
-    cid = m.chat.id
+    chat_id = m.chat.id   # GROUP ID
     uid = m.from_user.id
     name = m.from_user.first_name
 
-    if cid not in games:
+    if chat_id not in games:
         bot.reply_to(m, "❌ No active game. Use /startgame")
         return
 
-    if uid in games[cid]:
+    g = games[chat_id]
+
+    if uid in g["players"]:
         bot.reply_to(m, "⚠️ You already joined")
         return
 
     card = new_card()
-    games[cid][uid] = card
+    g["players"][uid] = card
+    g["marked"][uid] = set()
 
-    img = draw_card(name, card)
+    img = draw_card(name, card, set(), 0)
     img.save("card.png")
 
-    try:
-        bot.send_photo(uid, open("card.png", "rb"))
-        bot.send_message(cid, f"✅ {name} joined")
-    except:
-        bot.reply_to(
-            m,
-            "❌ Please open bot DM once and press Start"
-        )
-# ================= NUMBER CALL + MARK X =================
+    bot.send_photo(uid, open("card.png", "rb"))
+    bot.send_message(chat_id, f"✅ {name} joined")
+
 @bot.message_handler(func=lambda m: m.text and m.text.isdigit())
 def call_number(m):
-    chat_id = m.chat.id
+    chat_id = m.chat.id   # GROUP ID
     uid = m.from_user.id
     number = int(m.text)
 
-    # game must exist
     if chat_id not in games:
         return
 
     g = games[chat_id]
 
-    # only joined players can call numbers
+    # block non-joined users
     if uid not in g["players"]:
         bot.reply_to(m, "❌ You have not joined the game")
         return
 
-    # block duplicate numbers
     if number in g["called"]:
         bot.reply_to(m, "⚠️ Number already called")
         return
 
-    # save number
     g["called"].add(number)
 
-    # announce in group
     bot.send_message(
         chat_id,
         f"📢 <b>{m.from_user.first_name}</b> called <b>{number}</b>",
         parse_mode="HTML"
     )
 
-    # update all joined players
     for pid, card in g["players"].items():
         if number in card:
             g["marked"][pid].add(number)
@@ -144,7 +137,6 @@ def call_number(m):
 
         img.save("update.png")
         bot.send_photo(pid, open("update.png", "rb"))
-
 
 # ---------- RUN ----------
 bot.infinity_polling(skip_pending=True)

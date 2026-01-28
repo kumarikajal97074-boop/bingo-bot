@@ -105,6 +105,39 @@ def draw_card(name, card, marked, lines):
             fill="red",
             width=8
         )
+    # ================= DIAGONAL LINES =================
+
+    # Main diagonal (top-left → bottom-right)
+    if all(
+        (i * GRID + i + 1) in marked
+        for i in range(GRID)
+    ):
+        d.line(
+            (
+                MARGIN,
+                TOP,
+                MARGIN + GRID * CELL,
+                TOP + GRID * CELL
+            ),
+            fill="red",
+            width=10
+        )
+
+    # Anti-diagonal (top-right → bottom-left)
+    if all(
+        (i * GRID + (GRID - 1 - i) + 1) in marked
+        for i in range(GRID)
+    ):
+        d.line(
+            (
+                MARGIN + GRID * CELL,
+                TOP,
+                MARGIN,
+                TOP + GRID * CELL
+            ),
+            fill="red",
+            width=10
+        )
 
     return img
 

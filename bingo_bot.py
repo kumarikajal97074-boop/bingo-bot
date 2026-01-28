@@ -185,7 +185,7 @@ def call_number(m):
                 f"🏆 <b>{bot.get_chat(pid).first_name}</b> {new_lines}/5"
             )
 
-# AFTER marking the number
+# AFTER marking the number for a player
 new_lines = count_lines(card, g["marked"][pid])
 
 if new_lines == 5:
@@ -200,11 +200,13 @@ if new_lines == 5:
 
     bot.send_message(
         m.chat.id,
-        f"🏆 <b>WINNER:</b> {bot.get_chat(pid).first_name}"
+        f"🏆 <b>WINNER:</b> {bot.get_chat(pid).first_name}",
+        parse_mode="HTML"
     )
 
     games.pop(m.chat.id)
     
+
 # ================= RUN =================
 print("Bot started successfully")
 bot.infinity_polling()

@@ -54,11 +54,18 @@ def draw_card(name, card):
 # ---------- COMMANDS ----------
 @bot.message_handler(commands=["startgame"])
 def start_game(m):
-    games[m.chat.id] = {}
+    games[m.chat.id] = {
+        "players": {},   # uid -> card
+        "marked": {},    # uid -> set(numbers)
+        "called": set()  # ← REQUIRED
+    }
+
     bot.send_message(
         m.chat.id,
-        "🎯 Bingo started\nUse <b>/join</b> to join"
+        "🎯 Bingo started\nUse /join to join",
+        parse_mode="HTML"
     )
+
 
 @bot.message_handler(commands=["join"])
 def join(m):
@@ -101,17 +108,17 @@ def call_number(m):
 
     g = games[chat_id]
 
-    # ❌ block users who did NOT join
+    # only joined players can call numbers
     if uid not in g["players"]:
         bot.reply_to(m, "❌ You have not joined the game")
         return
 
-    # ❌ avoid duplicate number calls
+    # block duplicate numbers
     if number in g["called"]:
         bot.reply_to(m, "⚠️ Number already called")
         return
 
-    # save called number
+    # save number
     g["called"].add(number)
 
     # announce in group
@@ -121,7 +128,7 @@ def call_number(m):
         parse_mode="HTML"
     )
 
-    # update every joined player's card
+    # update all joined players
     for pid, card in g["players"].items():
         if number in card:
             g["marked"][pid].add(number)
@@ -137,6 +144,7 @@ def call_number(m):
 
         img.save("update.png")
         bot.send_photo(pid, open("update.png", "rb"))
+
 
 # ---------- RUN ----------
 bot.infinity_polling(skip_pending=True)

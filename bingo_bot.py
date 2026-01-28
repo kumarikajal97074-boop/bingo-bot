@@ -185,8 +185,10 @@ def call_number(m):
                 f"🏆 <b>{bot.get_chat(pid).first_name}</b> {new_lines}/5"
             )
 
+# AFTER marking the number
+new_lines = count_lines(card, g["marked"][pid])
+
 if new_lines == 5:
-    # ✅ DRAW & SEND FINAL UPDATED CARD FIRST
     img = draw_card(
         bot.get_chat(pid).first_name,
         card,
@@ -196,16 +198,14 @@ if new_lines == 5:
     img.save("update.png")
     bot.send_photo(pid, open("update.png", "rb"))
 
-
-    # ✅ THEN ANNOUNCE WINNER
     bot.send_message(
         m.chat.id,
-        f"🎉 <b>{bot.get_chat(pid).first_name}</b> WINS! (5/5)",
-        parse_mode="HTML"
+        f"🏆 <b>WINNER:</b> {bot.get_chat(pid).first_name}"
     )
 
-    # ✅ FINALLY END GAME
     games.pop(m.chat.id)
+    return
+
 
 
 # ================= RUN =================

@@ -176,14 +176,39 @@ def call_number(m):
     for pid, card in g["players"].items():
         if num in sum(card, []):
             g["marked"][pid].add(num)
-
+        # count completed lines AFTER marking
         new_lines = count_lines(card, g["marked"][pid])
+
+        # send update only if lines increased
         if new_lines > g["lines"][pid]:
             g["lines"][pid] = new_lines
+
+            # draw & send updated card to player (DM)
+            img = draw_card(
+                bot.get_chat(pid).first_name,
+                card,
+                g["marked"][pid],
+                new_lines
+            )
+            img.save("update.png")
+            bot.send_photo(pid, open("update.png", "rb"))
+
+            # announce line progress in group
             bot.send_message(
                 m.chat.id,
-                f"🏆 <b>{bot.get_chat(pid).first_name}</b> {new_lines}/5"
+                f"🏅 <b>{bot.get_chat(pid).first_name}</b> completed <b>{new_lines}/5</b>",
+                parse_mode="HTML"
             )
+
+            # WIN CONDITION
+            if new_lines == 5:
+                bot.send_message(
+                    m.chat.id,
+                    f"🏆 <b>WINNER:</b> {bot.get_chat(pid).first_name}",
+                    parse_mode="HTML"
+                )
+                games.pop(m.chat.id)
+        
 
 # AFTER marking the number for a player
 new_lines = count_lines(card, g["marked"][pid])

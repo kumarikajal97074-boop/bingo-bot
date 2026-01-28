@@ -204,10 +204,7 @@ if new_lines == 5:
     )
 
     games.pop(m.chat.id)
-    return
-
-
-
+    
 # ================= RUN =================
 print("Bot started successfully")
 bot.infinity_polling()

@@ -88,6 +88,18 @@ def join(m):
             m,
             "❌ Please open bot DM once and press Start"
         )
+# ================= NUMBER CALL =================
+@bot.message_handler(func=lambda m: m.text and m.text.isdigit())
+def call_number(m):
+    chat_id = m.chat.id
+    number = int(m.text)
+
+    # announce in group
+    bot.send_message(
+        chat_id,
+        f"📢 <b>{m.from_user.first_name}</b> called <b>{number}</b>",
+        parse_mode="HTML"
+    )
 
 # ---------- RUN ----------
 bot.infinity_polling(skip_pending=True)

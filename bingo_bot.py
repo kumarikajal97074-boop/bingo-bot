@@ -78,33 +78,7 @@ def draw_card(name, card, marked, lines):
         if all(card[r][i] in marked for r in range(5)):
             x = MARGIN + i*CELL + CELL//2
             d.line((x,TOP+10,x,TOP+CELL*5-10), fill="red", width=8)
-    # 🔴 RED DIAGONAL LINES
 
-    # main diagonal (top-left → bottom-right)
-    if all(card[i][i] in marked for i in range(5)):
-        d.line(
-            (
-                MARGIN + 20,
-                TOP + 20,
-                MARGIN + CELL*5 - 20,
-                TOP + CELL*5 - 20
-            ),
-            fill="red",
-            width=8
-        )
-
-    # anti diagonal (top-right → bottom-left)
-    if all(card[i][4 - i] in marked for i in range(5)):
-        d.line(
-            (
-                MARGIN + CELL*5 - 20,
-                TOP + 20,
-                MARGIN + 20,
-                TOP + CELL*5 - 20
-            ),
-            fill="red",
-            width=8
-        )
     # ================= DIAGONAL LINES =================
 
     # Main diagonal (top-left → bottom-right)
